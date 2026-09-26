@@ -1,4 +1,11 @@
-import { useState, createContext, useContext, useCallback } from 'react';
+import {
+  useState,
+  useEffect,
+  createContext,
+  useContext,
+  useCallback,
+} from 'react';
+
 import type {
   AppTheme,
   Task,
@@ -7,6 +14,7 @@ import type {
   Subject,
   ThemeId,
 } from './types';
+
 import { themes } from './themes';
 import Onboarding from './components/Onboarding';
 import Layout from './components/Layout';
@@ -39,34 +47,165 @@ export const AppContext = createContext<AppState>(
 
 export const useApp = () => useContext(AppContext);
 
+// =========================
+// LOCAL STORAGE HELPERS
+// =========================
+function loadData<T>(
+  key: string,
+  fallback: T
+): T {
+  try {
+    const saved = localStorage.getItem(key);
+
+    if (saved === null) {
+      return fallback;
+    }
+
+    return JSON.parse(saved) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 export default function App() {
+  // =========================
+  // USER NAME
+  // =========================
+  const [userName, setUserName] = useState<string>(() =>
+    loadData<string>('todo-user-name', '')
+  );
+
+  // =========================
+  // SCREEN
+  // =========================
   const [screen, setScreen] = useState<
     'onboarding' | 'app'
-  >('onboarding');
+  >(() => {
+    const savedName = loadData<string>(
+      'todo-user-name',
+      ''
+    );
 
-  const [userName, setUserName] = useState('');
+    return savedName.trim()
+      ? 'app'
+      : 'onboarding';
+  });
 
+  // =========================
+  // THEME
+  // =========================
   const [themeId, setThemeId] =
-    useState<ThemeId>('dark');
+    useState<ThemeId>(() =>
+      loadData<ThemeId>(
+        'todo-theme',
+        'dark'
+      )
+    );
 
-  // Empty from the beginning.
-  // User-created tasks will be added here.
-  const [tasks, setTasks] = useState<Task[]>([]);
+  // =========================
+  // TASKS
+  // =========================
+  const [tasks, setTasks] = useState<Task[]>(() =>
+    loadData<Task[]>(
+      'todo-tasks',
+      []
+    )
+  );
 
-  // No dummy study sessions.
+  // =========================
+  // STUDY SESSIONS
+  // =========================
   const [studySessions, setStudySessions] =
-    useState<StudySession[]>([]);
+    useState<StudySession[]>(() =>
+      loadData<StudySession[]>(
+        'todo-study-sessions',
+        []
+      )
+    );
 
-  // No dummy subjects.
+  // =========================
+  // SUBJECTS
+  // =========================
   const [subjects] = useState<Subject[]>([]);
 
+  // =========================
+  // ACTIVE NAV
+  // =========================
   const [activeNav, setActiveNav] =
-    useState<NavItem>('home');
+    useState<NavItem>(() =>
+      loadData<NavItem>(
+        'todo-active-nav',
+        'home'
+      )
+    );
 
+  // =========================
+  // CREATE MODAL
+  // =========================
   const [showCreateModal, setShowCreateModal] =
     useState(false);
 
   const theme = themes[themeId];
+
+  // =========================
+  // SAVE USER NAME
+  // =========================
+  useEffect(() => {
+    localStorage.setItem(
+      'todo-user-name',
+      JSON.stringify(userName)
+    );
+  }, [userName]);
+
+  // =========================
+  // SAVE THEME
+  // =========================
+  useEffect(() => {
+    localStorage.setItem(
+      'todo-theme',
+      JSON.stringify(themeId)
+    );
+  }, [themeId]);
+
+  // =========================
+  // SAVE TASKS
+  // =========================
+  useEffect(() => {
+    localStorage.setItem(
+      'todo-tasks',
+      JSON.stringify(tasks)
+    );
+  }, [tasks]);
+
+  // =========================
+  // SAVE STUDY SESSIONS
+  // =========================
+  useEffect(() => {
+    localStorage.setItem(
+      'todo-study-sessions',
+      JSON.stringify(studySessions)
+    );
+  }, [studySessions]);
+
+  // =========================
+  // SAVE ACTIVE NAV
+  // =========================
+  useEffect(() => {
+    localStorage.setItem(
+      'todo-active-nav',
+      JSON.stringify(activeNav)
+    );
+  }, [activeNav]);
+
+  // =========================
+  // SET THEME
+  // =========================
+  const setTheme = useCallback(
+    (id: ThemeId) => {
+      setThemeId(id);
+    },
+    []
+  );
 
   // =========================
   // ADD TASK
@@ -141,14 +280,27 @@ export default function App() {
   );
 
   // =========================
-  // ONBOARDING
+  // ONBOARDING COMPLETE
   // =========================
   if (screen === 'onboarding') {
     return (
       <Onboarding
         onComplete={(name, selectedTheme) => {
-          setUserName(name);
+          const trimmedName = name.trim();
+
+          setUserName(trimmedName);
           setThemeId(selectedTheme);
+
+          localStorage.setItem(
+            'todo-user-name',
+            JSON.stringify(trimmedName)
+          );
+
+          localStorage.setItem(
+            'todo-theme',
+            JSON.stringify(selectedTheme)
+          );
+
           setScreen('app');
         }}
       />
@@ -165,7 +317,7 @@ export default function App() {
 
         theme,
 
-        setTheme: setThemeId,
+        setTheme,
 
         tasks,
         addTask,
